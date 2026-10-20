@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/zalo-reminders", "schedule": "*/15 * * * *" }
+  ]
+}
