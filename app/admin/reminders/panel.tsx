@@ -10,6 +10,7 @@ type ClubEvent = { id: string; title: string; starts_at: string; location: strin
 type ReminderLog = { id: string; event_id: string; member_id: string; reminder_type: string; status: string; created_at: string; sent_at: string | null; error_code: string | null };
 const blankMember = { full_name: "", phone: "", zalo_uid: "", consent_to_reminders: false };
 const blankEvent = { title: "", starts_at: "", location: "", notes: "" };
+const weekdays = [{ value: 1, label: "Thứ Hai" }, { value: 3, label: "Thứ Tư" }, { value: 5, label: "Thứ Sáu" }];
 
 export default function RemindersPanel() {
   const [supabase] = useState(() => createClient());
@@ -20,6 +21,8 @@ export default function RemindersPanel() {
   const [logs, setLogs] = useState<ReminderLog[]>([]);
   const [member, setMember] = useState(blankMember);
   const [event, setEvent] = useState(blankEvent);
+  const [repeatWeekly, setRepeatWeekly] = useState(true);
+  const [repeatDays, setRepeatDays] = useState<number[]>([1, 3, 5]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -47,8 +50,25 @@ export default function RemindersPanel() {
   }
   async function saveEvent(e: FormEvent) {
     e.preventDefault(); setBusy(true); setMessage("");
-    const { error } = await supabase.from("club_events").insert({ title: event.title.trim(), starts_at: new Date(event.starts_at).toISOString(), location: event.location.trim() || null, notes: event.notes.trim() || null });
-    setMessage(error ? `Không lưu được lịch: ${error.message}` : "Đã thêm lịch sinh hoạt.");
+    const start = new Date(event.starts_at);
+    const dates: Date[] = [];
+    if (repeatWeekly && repeatDays.length > 0) {
+      // Create concrete event rows for the next 12 weeks so the existing reminder cron can process each occurrence.
+      const cursor = new Date(start);
+      cursor.setSeconds(0, 0);
+      const horizon = new Date(start);
+      horizon.setDate(horizon.getDate() + 84);
+      while (cursor <= horizon) {
+        const day = cursor.getDay(); // 0 Sunday, 1 Monday, ...
+        if (repeatDays.includes(day) && cursor >= start) dates.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    } else {
+      dates.push(start);
+    }
+    const rows = dates.map(date => ({ title: event.title.trim(), starts_at: date.toISOString(), location: event.location.trim() || null, notes: event.notes.trim() || null }));
+    const { error } = await supabase.from("club_events").insert(rows);
+    setMessage(error ? `Không lưu được lịch: ${error.message}` : `Đã tạo ${dates.length} buổi sinh hoạt${repeatWeekly && repeatDays.length ? " cho 12 tuần tới" : ""}.`);
     if (!error) { setEvent(blankEvent); await reload(); } setBusy(false);
   }
   async function toggleConsent(m: Member) {
@@ -80,6 +100,9 @@ export default function RemindersPanel() {
         <section className="admin-card edit-card"><h2><Plus size={19}/> Thêm lịch sinh hoạt</h2><form className="admin-form" onSubmit={saveEvent}>
           <label>Tên buổi sinh hoạt *<input value={event.title} onChange={e=>setEvent({...event,title:e.target.value})} required maxLength={150} placeholder="Ví dụ: Sinh hoạt CLB tuần này"/></label>
           <label>Ngày giờ bắt đầu *<input type="datetime-local" value={event.starts_at} onChange={e=>setEvent({...event,starts_at:e.target.value})} required/></label>
+          <label className="checkbox-label"><input type="checkbox" checked={repeatWeekly} onChange={e=>setRepeatWeekly(e.target.checked)}/> Tự động tạo lịch hằng tuần trong 12 tuần tới</label>
+          {repeatWeekly && <fieldset style={{border:"1px solid #d7e5d6",borderRadius:10,padding:12,display:"flex",gap:16,flexWrap:"wrap"}}><legend style={{fontSize:13,padding:"0 6px"}}>Chọn các ngày lặp</legend>{weekdays.map(day=><label key={day.value} className="checkbox-label"><input type="checkbox" checked={repeatDays.includes(day.value)} onChange={e=>setRepeatDays(current=>e.target.checked?[...current,day.value].sort((a,b)=>a-b):current.filter(d=>d!==day.value))}/>{day.label}</label>)}</fieldset>}
+          <p className="field-help">Mặc định: thứ Hai, thứ Tư và thứ Sáu. Hệ thống tạo các buổi riêng trong 12 tuần tới để lịch nhắc hoạt động theo từng buổi. Trước khi hết 12 tuần, hãy tạo tiếp lịch cho giai đoạn sau.</p>
           <label>Địa điểm<input value={event.location} onChange={e=>setEvent({...event,location:e.target.value})} maxLength={250} placeholder="Địa chỉ CLB"/></label>
           <label>Ghi chú<textarea rows={3} value={event.notes} onChange={e=>setEvent({...event,notes:e.target.value})} maxLength={500} placeholder="Chuẩn bị hoặc nội dung cần lưu ý"/></label>
           <button className="button" disabled={busy}><Plus size={16}/> Lưu lịch sinh hoạt</button>
