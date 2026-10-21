@@ -141,4 +141,9 @@ Tài liệu chính thức: [Tổng quan loại tin OA](https://oa.zalo.me/home/d
 - Trang admin dùng Supabase Auth. Bảo vệ tài khoản bằng mật khẩu mạnh và chỉ cấp quyền cho người quản trị tin cậy.
 - `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `ZALO_APP_SECRET`, `ZALO_REFRESH_TOKEN`, `ZALO_TOKEN_ENCRYPTION_KEY` chỉ được đặt trong Environment Variables phía server ở Vercel, không commit vào GitHub và không gửi qua chat.
 - Lịch gửi tự động có thể bị trì hoãn theo lịch chạy cron; đây không phải hệ thống gửi tin tức thời hoặc cam kết tin chắc chắn đến người nhận.
-Deploy trigger
+
+## 7. Thêm sản phẩm mẫu Herbalife
+
+Sau khi chạy `supabase/schema.sql`, mở `supabase/sample_products.sql`, sao chép nội dung vào Supabase → SQL Editor → New query → Run. Script thêm các sản phẩm mẫu chưa có tên trùng trong bảng `products`; không thêm giá và không dùng ảnh giả. `image_url` để trống, bạn có thể bổ sung ảnh chính thức mà bạn được phép sử dụng trong trang `/admin`.
+
+**Trước khi công khai:** hãy đối chiếu tên, bao bì, thành phần và tình trạng phân phối của từng dòng với danh mục/nhãn chính thức Herbalife Việt Nam. Một số tên trong danh sách là gợi ý mẫu và có thể không được phân phối tại Việt Nam hoặc đã thay đổi. Không dùng mô tả để cam kết giảm cân, chữa bệnh hay hiệu quả sức khỏe; không tự ý thêm tuyên bố y tế.
