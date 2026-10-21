@@ -7,10 +7,10 @@ import { ArrowLeft, Eye, EyeOff, Leaf, LogOut, Pencil, Plus, Save, Trash2, Calen
 
 type Product = {
   id: string; name: string; description: string | null; image_url: string | null;
-  category: string | null; price: number | null; is_active: boolean; created_at: string;
+  category: string | null; is_active: boolean; created_at: string;
 };
-type Draft = { name: string; description: string; image_url: string; category: string; price: string; is_active: boolean };
-const blank: Draft = { name: "", description: "", image_url: "", category: "", price: "", is_active: true };
+type Draft = { name: string; description: string; image_url: string; category: string; is_active: boolean };
+const blank: Draft = { name: "", description: "", image_url: "", category: "", is_active: true };
 
 export default function AdminPanel() {
   const [supabase] = useState(() => createClient());
@@ -57,7 +57,7 @@ export default function AdminPanel() {
 
   function startEdit(p: Product) {
     setEditingId(p.id);
-    setDraft({ name: p.name, description: p.description ?? "", image_url: p.image_url ?? "", category: p.category ?? "", price: p.price == null ? "" : String(p.price), is_active: p.is_active });
+    setDraft({ name: p.name, description: p.description ?? "", image_url: p.image_url ?? "", category: p.category ?? "", is_active: p.is_active });
     setMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -69,11 +69,9 @@ export default function AdminPanel() {
     const payload = {
       name: draft.name.trim(), description: draft.description.trim() || null,
       image_url: draft.image_url.trim() || null, category: draft.category.trim() || null,
-      price: draft.price.trim() === "" ? null : Number(draft.price),
       is_active: draft.is_active
     };
     if (!payload.name) { setMessage("Vui lòng nhập tên sản phẩm."); setBusy(false); return; }
-    if (payload.price !== null && (!Number.isFinite(payload.price) || payload.price < 0)) { setMessage("Giá phải là số không âm hoặc để trống."); setBusy(false); return; }
     const result = editingId
       ? await supabase.from("products").update(payload).eq("id", editingId)
       : await supabase.from("products").insert(payload);
@@ -122,8 +120,6 @@ export default function AdminPanel() {
           <h2>{editingId ? <><Pencil size={19} /> Chỉnh sửa sản phẩm</> : <><Plus size={19} /> Thêm sản phẩm mới</>}</h2>
           <form className="admin-form" onSubmit={saveProduct}>
             <label>Tên sản phẩm *<input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} required maxLength={120} placeholder="Ví dụ: Sản phẩm dinh dưỡng" /></label>
-            <label>Giá tham khảo (VNĐ)<input type="number" min="0" step="1000" inputMode="numeric" value={draft.price} onChange={e => setDraft({ ...draft, price: e.target.value })} placeholder="Để trống nếu chưa xác định" /></label>
-            <p className="field-help">Giá chỉ lưu trong phần quản trị; website công khai vẫn không hiển thị giá.</p>
             <label>Danh mục<input value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })} maxLength={60} placeholder="Ví dụ: Dinh dưỡng" /></label>
             <label>URL hình ảnh<input type="url" value={draft.image_url} onChange={e => setDraft({ ...draft, image_url: e.target.value })} placeholder="https://..." /></label>
             <p className="field-help">Dán đường dẫn ảnh công khai https://. Chưa có chức năng tải ảnh trực tiếp lên.</p>
@@ -137,13 +133,13 @@ export default function AdminPanel() {
           {products.length === 0 ? <div className="admin-empty">Chưa có sản phẩm. Hãy thêm sản phẩm ở biểu mẫu bên cạnh.</div> : <div className="admin-product-list">
             {products.map(p => <article className="admin-product" key={p.id}>
               <div className="admin-product-image">{p.image_url ? <img src={p.image_url} alt="" /> : <Leaf size={25} />}</div>
-              <div className="admin-product-info"><strong>{p.name}</strong><span>{p.category || "Chưa phân loại"}</span><span>{p.price == null ? "Chưa nhập giá" : `Giá tham khảo: ${new Intl.NumberFormat("vi-VN").format(p.price)} ₫`}</span><span className={p.is_active ? "status-active" : "status-hidden"}>{p.is_active ? "Đang hiển thị" : "Đang ẩn"}</span></div>
+              <div className="admin-product-info"><strong>{p.name}</strong><span>{p.category || "Chưa phân loại"}</span><span className={p.is_active ? "status-active" : "status-hidden"}>{p.is_active ? "Đang hiển thị" : "Đang ẩn"}</span></div>
               <div className="admin-product-actions"><button className="icon-button" onClick={() => startEdit(p)} title="Chỉnh sửa"><Pencil size={16} /></button><button className="icon-button" onClick={() => toggleProduct(p)} title={p.is_active ? "Ẩn sản phẩm" : "Hiện sản phẩm"}>{p.is_active ? <EyeOff size={16} /> : <Eye size={16} />}</button><button className="icon-button danger" onClick={() => deleteProduct(p)} title="Xóa"><Trash2 size={16} /></button></div>
             </article>)}
           </div>}
         </section>
       </div>
-      <p className="admin-footnote">Giá tham khảo được lưu trong khu vực quản trị và không hiển thị công khai trên website. Hãy kiểm tra giá bán thực tế trước khi tư vấn khách hàng.</p>
+      <p className="admin-footnote">Giá không được lưu hoặc hiển thị trên website. Khách hàng liên hệ qua điện thoại/Zalo để hỏi giá.</p>
     </div>
   </div>;
 }
