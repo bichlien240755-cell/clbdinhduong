@@ -147,3 +147,8 @@ Tài liệu chính thức: [Tổng quan loại tin OA](https://oa.zalo.me/home/d
 Sau khi chạy `supabase/schema.sql`, mở `supabase/sample_products.sql`, sao chép nội dung vào Supabase → SQL Editor → New query → Run. Script thêm các sản phẩm mẫu chưa có tên trùng trong bảng `products`; không thêm giá và không dùng ảnh giả. `image_url` để trống, bạn có thể bổ sung ảnh chính thức mà bạn được phép sử dụng trong trang `/admin`.
 
 **Trước khi công khai:** hãy đối chiếu tên, bao bì, thành phần và tình trạng phân phối của từng dòng với danh mục/nhãn chính thức Herbalife Việt Nam. Một số tên trong danh sách là gợi ý mẫu và có thể không được phân phối tại Việt Nam hoặc đã thay đổi. Không dùng mô tả để cam kết giảm cân, chữa bệnh hay hiệu quả sức khỏe; không tự ý thêm tuyên bố y tế.
+
+
+## Cập nhật giá sản phẩm trong trang admin
+
+Trang `/admin` có trường Giá tham khảo (VNĐ). Giá được lưu trong cột `products.price` và chỉ dùng trong khu vực quản trị; trang công khai vẫn không hiển thị giá. Nếu bảng `products` đã tồn tại, chạy `supabase/migration_add_product_price.sql` trong Supabase SQL Editor trước khi dùng trường giá. Nếu tạo mới từ đầu, chạy toàn bộ `supabase/schema.sql`. Giá để trống được lưu thành `NULL`; chỉ nhập số không âm.

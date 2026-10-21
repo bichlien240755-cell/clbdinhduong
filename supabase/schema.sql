@@ -7,6 +7,7 @@ create table if not exists public.products (
   description text,
   image_url text,
   category text,
+  price numeric(12,2) check (price is null or price >= 0),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -72,6 +73,11 @@ grant execute on function public.is_club_admin() to anon, authenticated;
 -- Sau khi tạo user quản trị trong Authentication > Users,
 -- thay YOUR_AUTH_USER_UUID bằng UUID của user đó rồi chạy:
 -- insert into public.club_admins (user_id) values ('YOUR_AUTH_USER_UUID');
+
+-- Cập nhật an toàn cho dự án đã tạo bảng products trước đó.
+alter table public.products add column if not exists price numeric(12,2);
+alter table public.products drop constraint if exists products_price_check;
+alter table public.products add constraint products_price_check check (price is null or price >= 0);
 
 -- 2) Lịch sinh hoạt, thành viên và lịch sử nhắc lịch.
 create table if not exists public.club_members (
