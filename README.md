@@ -141,3 +141,4 @@ Tài liệu chính thức: [Tổng quan loại tin OA](https://oa.zalo.me/home/d
 - Trang admin dùng Supabase Auth. Bảo vệ tài khoản bằng mật khẩu mạnh và chỉ cấp quyền cho người quản trị tin cậy.
 - `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `ZALO_APP_SECRET`, `ZALO_REFRESH_TOKEN`, `ZALO_TOKEN_ENCRYPTION_KEY` chỉ được đặt trong Environment Variables phía server ở Vercel, không commit vào GitHub và không gửi qua chat.
 - Lịch gửi tự động có thể bị trì hoãn theo lịch chạy cron; đây không phải hệ thống gửi tin tức thời hoặc cam kết tin chắc chắn đến người nhận.
+Deploy trigger
