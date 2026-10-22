@@ -2,6 +2,14 @@ import Link from "next/link";
 import { ArrowRight, HeartPulse, Leaf, MessageCircle, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase-server";
 
+type ClubEvent = {
+  id: string;
+  title: string;
+  starts_at: string;
+  location: string | null;
+  notes: string | null;
+};
+
 type Product = {
   id: string;
   name: string;
@@ -17,6 +25,7 @@ export const revalidate = 0;
 
 export default async function Home() {
   let products: Product[] = [];
+  let events: ClubEvent[] = [];
   let dbReady = true;
   try {
     const supabase = await createClient();
@@ -27,6 +36,16 @@ export default async function Home() {
       .order("created_at", { ascending: false });
     if (error) throw error;
     products = data ?? [];
+    const { data: eventData, error: eventError } = await supabase
+      .from("club_events")
+      .select("id,title,starts_at,location,notes")
+      .eq("is_active", true)
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(6);
+    // Events are optional for the public homepage. Keep product listings visible
+    // even if the public event-read policy has not been applied yet.
+    if (!eventError) events = eventData ?? [];
   } catch {
     dbReady = false;
   }
@@ -48,6 +67,7 @@ export default async function Home() {
           <nav>
             <a href="#gioi-thieu">Giới thiệu</a>
             <a href="#san-pham">Sản phẩm</a>
+            <a href="#lich-sinh-hoat">Lịch sinh hoạt</a>
             <a href="#lien-he">Liên hệ</a>
           </nav>
           <a className="button button-small" href={ZALO} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Tư vấn qua Zalo</a>
@@ -102,6 +122,34 @@ export default async function Home() {
             </ul>
             <a className="text-link" href={ZALO} target="_blank" rel="noreferrer">Kết nối với câu lạc bộ <ArrowRight size={17} /></a>
           </div>
+        </div>
+      </section>
+
+      <section className="section schedule-section" id="lich-sinh-hoat">
+        <div className="container">
+          <div className="section-heading">
+            <div><div className="eyebrow">KẾT NỐI CÙNG CÂU LẠC BỘ</div><h2>Lịch sinh hoạt<br /><em>sắp diễn ra</em></h2></div>
+            <p>Cập nhật các buổi sinh hoạt để bạn chủ động sắp xếp thời gian tham dự.</p>
+          </div>
+          {events.length === 0 ? (
+            <div className="empty-state schedule-empty"><Leaf size={30} /><h3>Lịch sinh hoạt đang được cập nhật</h3><p>Các buổi sinh hoạt sắp tới sẽ hiển thị tại đây khi câu lạc bộ đăng lịch.</p><a className="button" href={`${ZALO}?text=${encodeURIComponent("Xin chào, cho tôi hỏi lịch sinh hoạt sắp tới của Câu lạc bộ Dinh dưỡng Herbalife.")}`} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Hỏi lịch qua Zalo</a></div>
+          ) : (
+            <div className="schedule-grid">
+              {events.map((event) => {
+                const date = new Date(event.starts_at);
+                const day = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+                const month = new Intl.DateTimeFormat("vi-VN", { month: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+                const weekday = new Intl.DateTimeFormat("vi-VN", { weekday: "long", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+                const time = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+                const fullDate = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+                return <article className="schedule-card" key={event.id}>
+                  <div className="schedule-date"><strong>{day}</strong><span>{month}</span></div>
+                  <div className="schedule-details"><span className="schedule-weekday">{weekday}</span><h3>{event.title}</h3><p className="schedule-meta"><span>◷ {time} · {fullDate}</span>{event.location && <span>⌖ {event.location}</span>}</p>{event.notes && <p className="schedule-notes">{event.notes}</p>}</div>
+                  <a className="schedule-ask" href={`${ZALO}?text=${encodeURIComponent(`Xin chào, tôi muốn tìm hiểu và đăng ký tham dự buổi ${event.title} ngày ${fullDate} lúc ${time}.`)}`} target="_blank" rel="noreferrer">Hỏi tham dự <ArrowRight size={15} /></a>
+                </article>;
+              })}
+            </div>
+          )}
         </div>
       </section>
 
