@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { ArrowLeft, Eye, EyeOff, Leaf, LogOut, Pencil, Plus, Save, Trash2, CalendarDays, MapPin, Phone, MessageCircle } from "lucide-react";
@@ -32,6 +32,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<ClubSettings>(defaultSettings);
   const [settingsBusy, setSettingsBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -108,6 +109,48 @@ export default function AdminPanel() {
 
   function resetForm() { setDraft(blank); setEditingId(null); }
 
+  async function handleImageUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset the input so the same file can be selected again after an error.
+    e.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMessage("Vui lòng chọn một tệp hình ảnh.");
+      return;
+    }
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setMessage("Định dạng được hỗ trợ: JPG, PNG, WEBP hoặc GIF.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Ảnh quá lớn. Vui lòng chọn ảnh tối đa 5 MB.");
+      return;
+    }
+
+    setUploadBusy(true);
+    setMessage("");
+    const extensionByType: Record<string, string> = {
+      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"
+    };
+    const filePath = `products/${crypto.randomUUID()}.${extensionByType[file.type]}`;
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+
+    if (uploadError) {
+      setMessage("Tải ảnh thất bại: " + uploadError.message + ". Hãy kiểm tra bucket product-images và Storage policies trong Supabase.");
+      setUploadBusy(false);
+      return;
+    }
+
+    const { data } = supabase.storage.from("product-images").getPublicUrl(filePath);
+    setDraft(current => ({ ...current, image_url: data.publicUrl }));
+    setMessage("Đã tải ảnh lên. Hãy lưu sản phẩm để áp dụng ảnh.");
+    setUploadBusy(false);
+  }
+
   async function saveProduct(e: FormEvent) {
     e.preventDefault(); setBusy(true); setMessage("");
     const payload = {
@@ -175,8 +218,13 @@ export default function AdminPanel() {
           <form className="admin-form" onSubmit={saveProduct}>
             <label>Tên sản phẩm *<input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} required maxLength={120} placeholder="Ví dụ: Sản phẩm dinh dưỡng" /></label>
             <label>Danh mục<input value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })} maxLength={60} placeholder="Ví dụ: Dinh dưỡng" /></label>
-            <label>URL hình ảnh<input type="url" value={draft.image_url} onChange={e => setDraft({ ...draft, image_url: e.target.value })} placeholder="https://..." /></label>
-            <p className="field-help">Dán đường dẫn ảnh công khai https://. Chưa có chức năng tải ảnh trực tiếp lên.</p>
+            <label>Chọn ảnh từ điện thoại/máy tính
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageUpload} disabled={uploadBusy} />
+            </label>
+            <p className="field-help">Hỗ trợ JPG, PNG, WEBP, GIF; tối đa 5 MB. Ảnh sẽ được tải lên Supabase Storage.</p>
+            {uploadBusy && <p className="field-help">Đang tải ảnh lên…</p>}
+            <label>Hoặc nhập URL hình ảnh<input type="url" value={draft.image_url} onChange={e => setDraft({ ...draft, image_url: e.target.value })} placeholder="https://..." /></label>
+            {draft.image_url && <div style={{ marginTop: 8 }}><p className="field-help">Xem trước ảnh</p><img src={draft.image_url} alt="Xem trước ảnh sản phẩm" style={{ width: "100%", maxWidth: 260, maxHeight: 260, objectFit: "contain", borderRadius: 12, border: "1px solid #ddd" }} /></div>}
             <label>Mô tả sản phẩm<textarea rows={4} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} maxLength={700} placeholder="Thông tin ngắn gọn, chính xác theo nhãn sản phẩm." /></label>
             <label className="checkbox-label"><input type="checkbox" checked={draft.is_active} onChange={e => setDraft({ ...draft, is_active: e.target.checked })} /> Hiển thị trên trang chủ</label>
             <div className="form-actions"><button className="button" disabled={busy}><Save size={17} /> {busy ? "Đang lưu…" : editingId ? "Lưu thay đổi" : "Thêm sản phẩm"}</button>{editingId && <button type="button" className="button button-outline" onClick={resetForm}>Hủy sửa</button>}</div>
