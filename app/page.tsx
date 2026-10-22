@@ -18,8 +18,15 @@ type Product = {
   category: string | null;
 };
 
-const PHONE = "0902666859";
-const ZALO = "https://zalo.me/0902666859";
+const DEFAULT_ADDRESS = "100/4 Tổ 10, Khu phố 5, Phường Long Bình, Thành phố Đồng Nai";
+const DEFAULT_PHONE = "0902666859";
+const DEFAULT_ZALO_PHONE = "0902666859";
+
+type ClubSettings = {
+  address: string;
+  phone: string;
+  zalo_phone: string | null;
+};
 
 export const revalidate = 0;
 
@@ -27,6 +34,11 @@ export default async function Home() {
   let products: Product[] = [];
   let events: ClubEvent[] = [];
   let dbReady = true;
+  let settings: ClubSettings = {
+    address: DEFAULT_ADDRESS,
+    phone: DEFAULT_PHONE,
+    zalo_phone: DEFAULT_ZALO_PHONE,
+  };
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -36,6 +48,22 @@ export default async function Home() {
       .order("created_at", { ascending: false });
     if (error) throw error;
     products = data ?? [];
+
+    // Contact details are editable from the admin panel. Keep safe defaults
+    // if the settings table is unavailable or has not been configured.
+    const { data: settingsData, error: settingsError } = await supabase
+      .from("club_settings")
+      .select("address,phone,zalo_phone")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!settingsError && settingsData) {
+      settings = {
+        address: settingsData.address || DEFAULT_ADDRESS,
+        phone: settingsData.phone || DEFAULT_PHONE,
+        zalo_phone: settingsData.zalo_phone || settingsData.phone || DEFAULT_ZALO_PHONE,
+      };
+    }
+
     const { data: eventData, error: eventError } = await supabase
       .from("club_events")
       .select("id,title,starts_at,location,notes")
@@ -50,12 +78,17 @@ export default async function Home() {
     dbReady = false;
   }
 
+  const phoneHref = `tel:${settings.phone.replace(/[^+\d]/g, "")}`;
+  const zaloPhone = (settings.zalo_phone || settings.phone || DEFAULT_ZALO_PHONE).replace(/[^+\d]/g, "");
+  const zaloUrl = `https://zalo.me/${zaloPhone}`;
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address)}`;
+
   return (
     <main>
       <div className="topbar">
         <div className="container topbar-inner">
           <span>Nuôi dưỡng thói quen sống khỏe mỗi ngày</span>
-          <a href={`tel:${PHONE}`}><Phone size={14} /> {PHONE}</a>
+          <a href={phoneHref}><Phone size={14} /> {settings.phone}</a>
         </div>
       </div>
       <header className="site-header">
@@ -70,7 +103,7 @@ export default async function Home() {
             <a href="#lich-sinh-hoat">Lịch sinh hoạt</a>
             <a href="#lien-he">Liên hệ</a>
           </nav>
-          <a className="button button-small" href={ZALO} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Tư vấn qua Zalo</a>
+          <a className="button button-small" href={zaloUrl} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Tư vấn qua Zalo</a>
         </div>
       </header>
 
@@ -83,7 +116,7 @@ export default async function Home() {
             <p className="hero-lead">Chào mừng bạn đến với Câu lạc bộ Dinh dưỡng Herbalife — nơi cùng nhau tìm hiểu dinh dưỡng, xây dựng thói quen tích cực và hướng đến lối sống năng động.</p>
             <div className="hero-actions">
               <a className="button" href="#san-pham">Khám phá sản phẩm <ArrowRight size={18} /></a>
-              <a className="button button-outline" href={ZALO} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Nhắn Zalo</a>
+              <a className="button button-outline" href={zaloUrl} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Nhắn Zalo</a>
             </div>
             <div className="hero-note"><ShieldCheck size={17} /> Tư vấn thông tin sản phẩm rõ ràng, theo nhãn và hướng dẫn sử dụng.</div>
           </div>
@@ -120,7 +153,7 @@ export default async function Home() {
               <li><span>✓</span> Trao đổi trực tiếp với người tư vấn</li>
               <li><span>✓</span> Liên hệ nhanh, không cần tạo tài khoản khách hàng</li>
             </ul>
-            <a className="text-link" href={ZALO} target="_blank" rel="noreferrer">Kết nối với câu lạc bộ <ArrowRight size={17} /></a>
+            <a className="text-link" href={zaloUrl} target="_blank" rel="noreferrer">Kết nối với câu lạc bộ <ArrowRight size={17} /></a>
           </div>
         </div>
       </section>
@@ -132,7 +165,7 @@ export default async function Home() {
             <p>Cập nhật các buổi sinh hoạt để bạn chủ động sắp xếp thời gian tham dự.</p>
           </div>
           {events.length === 0 ? (
-            <div className="empty-state schedule-empty"><Leaf size={30} /><h3>Lịch sinh hoạt đang được cập nhật</h3><p>Các buổi sinh hoạt sắp tới sẽ hiển thị tại đây khi câu lạc bộ đăng lịch.</p><a className="button" href={`${ZALO}?text=${encodeURIComponent("Xin chào, cho tôi hỏi lịch sinh hoạt sắp tới của Câu lạc bộ Dinh dưỡng Herbalife.")}`} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Hỏi lịch qua Zalo</a></div>
+            <div className="empty-state schedule-empty"><Leaf size={30} /><h3>Lịch sinh hoạt đang được cập nhật</h3><p>Các buổi sinh hoạt sắp tới sẽ hiển thị tại đây khi câu lạc bộ đăng lịch.</p><a className="button" href={`${zaloUrl}?text=${encodeURIComponent("Xin chào, cho tôi hỏi lịch sinh hoạt sắp tới của Câu lạc bộ Dinh dưỡng Herbalife.")}`} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Hỏi lịch qua Zalo</a></div>
           ) : (
             <div className="schedule-grid">
               {events.map((event) => {
@@ -145,7 +178,7 @@ export default async function Home() {
                 return <article className="schedule-card" key={event.id}>
                   <div className="schedule-date"><strong>{day}</strong><span>{month}</span></div>
                   <div className="schedule-details"><span className="schedule-weekday">{weekday}</span><h3>{event.title}</h3><p className="schedule-meta"><span>◷ {time} · {fullDate}</span>{event.location && <span>⌖ {event.location}</span>}</p>{event.notes && <p className="schedule-notes">{event.notes}</p>}</div>
-                  <a className="schedule-ask" href={`${ZALO}?text=${encodeURIComponent(`Xin chào, tôi muốn tìm hiểu và đăng ký tham dự buổi ${event.title} ngày ${fullDate} lúc ${time}.`)}`} target="_blank" rel="noreferrer">Hỏi tham dự <ArrowRight size={15} /></a>
+                  <a className="schedule-ask" href={`${zaloUrl}?text=${encodeURIComponent(`Xin chào, tôi muốn tìm hiểu và đăng ký tham dự buổi ${event.title} ngày ${fullDate} lúc ${time}.`)}`} target="_blank" rel="noreferrer">Hỏi tham dự <ArrowRight size={15} /></a>
                 </article>;
               })}
             </div>
@@ -162,7 +195,7 @@ export default async function Home() {
           {!dbReady ? (
             <div className="empty-state"><Leaf size={30} /><h3>Danh mục sản phẩm đang được thiết lập</h3><p>Vui lòng quay lại sau hoặc liên hệ trực tiếp để được hỗ trợ.</p></div>
           ) : products.length === 0 ? (
-            <div className="empty-state"><Leaf size={30} /><h3>Sản phẩm sẽ được cập nhật tại đây</h3><p>Danh mục sẽ hiển thị khi quản trị viên thêm và bật trạng thái sản phẩm.</p><a className="button" href={ZALO} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Hỏi sản phẩm qua Zalo</a></div>
+            <div className="empty-state"><Leaf size={30} /><h3>Sản phẩm sẽ được cập nhật tại đây</h3><p>Danh mục sẽ hiển thị khi quản trị viên thêm và bật trạng thái sản phẩm.</p><a className="button" href={zaloUrl} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Hỏi sản phẩm qua Zalo</a></div>
           ) : (
             <div className="product-grid">
               {products.map((p) => <article className="product-card" key={p.id}>
@@ -170,7 +203,7 @@ export default async function Home() {
                   {p.image_url ? <img src={p.image_url} alt={p.name} /> : <div className="image-placeholder"><Leaf size={42} /></div>}
                   {p.category && <span className="category-tag">{p.category}</span>}
                 </div>
-                <div className="product-content"><h3>{p.name}</h3><p>{p.description || "Liên hệ để tìm hiểu thông tin chi tiết về sản phẩm."}</p><a href={`${ZALO}?text=${encodeURIComponent(`Xin chào, tôi muốn hỏi thông tin sản phẩm ${p.name}.`)}`} target="_blank" rel="noreferrer" className="product-cta">Liên hệ hỏi giá <ArrowRight size={16} /></a></div>
+                <div className="product-content"><h3>{p.name}</h3><p>{p.description || "Liên hệ để tìm hiểu thông tin chi tiết về sản phẩm."}</p><a href={`${zaloUrl}?text=${encodeURIComponent(`Xin chào, tôi muốn hỏi thông tin sản phẩm ${p.name}.`)}`} target="_blank" rel="noreferrer" className="product-cta">Liên hệ hỏi giá <ArrowRight size={16} /></a></div>
               </article>)}
             </div>
           )}
@@ -180,21 +213,21 @@ export default async function Home() {
 
       <section className="contact-band" id="lien-he">
         <div className="container contact-inner">
-          <div><div className="eyebrow eyebrow-light">CHÚNG TÔI SẴN SÀNG HỖ TRỢ</div><h2>Bạn cần tìm hiểu thêm?</h2><p>Gọi điện hoặc nhắn Zalo để hỏi thông tin sản phẩm và cách đặt mua.</p></div>
-          <div className="contact-actions"><a className="button button-white" href={`tel:${PHONE}`}><Phone size={18} /> Gọi {PHONE}</a><a className="button button-zalo" href={ZALO} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Nhắn Zalo</a></div>
+          <div><div className="eyebrow eyebrow-light">CHÚNG TÔI SẴN SÀNG HỖ TRỢ</div><h2>Bạn cần tìm hiểu thêm?</h2><p>Gọi điện hoặc nhắn Zalo để hỏi thông tin sản phẩm và cách đặt mua.</p><p className="contact-address">📍 Địa chỉ CLB: {settings.address}</p><p><a href={mapUrl} target="_blank" rel="noreferrer">Xem đường đi trên Google Maps ↗</a></p></div>
+          <div className="contact-actions"><a className="button button-white" href={phoneHref}><Phone size={18} /> Gọi {settings.phone}</a><a className="button button-zalo" href={zaloUrl} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Nhắn Zalo</a></div>
         </div>
       </section>
 
       <footer className="footer">
         <div className="container footer-main">
           <Link href="/" className="brand brand-footer"><span className="brand-mark"><Leaf size={25} /></span><span><strong>CÂU LẠC BỘ DINH DƯỠNG</strong><small>HERBALIFE NUTRITION</small></span></Link>
-          <p>Thông tin liên hệ<br /><a href={`tel:${PHONE}`}>{PHONE}</a> · <a href={ZALO} target="_blank" rel="noreferrer">Zalo</a></p>
+          <p>Thông tin liên hệ<br /><a href={phoneHref}>{settings.phone}</a> · <a href={zaloUrl} target="_blank" rel="noreferrer">Zalo</a><br />📍 {settings.address}<br /><a href={mapUrl} target="_blank" rel="noreferrer">Chỉ đường trên Google Maps</a></p>
           <Link href="/admin" className="admin-link">Quản trị viên</Link>
         </div>
         <div className="container footer-bottom"><span>© {new Date().getFullYear()} Câu lạc bộ Dinh dưỡng Herbalife.</span><span>Website giới thiệu độc lập, không phải website chính thức của Herbalife.</span></div>
         <p className="disclaimer">Thông tin trên website chỉ nhằm giới thiệu sản phẩm và không thay thế tư vấn y tế. Sản phẩm không được giới thiệu như thuốc điều trị bệnh.</p>
       </footer>
-      <a className="floating-zalo" href={ZALO} target="_blank" rel="noreferrer" aria-label="Liên hệ Zalo"><MessageCircle size={25} /><span>Zalo</span></a>
+      <a className="floating-zalo" href={zaloUrl} target="_blank" rel="noreferrer" aria-label="Liên hệ Zalo"><MessageCircle size={25} /><span>Zalo</span></a>
     </main>
   );
 }
