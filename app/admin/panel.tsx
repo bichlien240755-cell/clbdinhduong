@@ -3,14 +3,21 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
-import { ArrowLeft, Eye, EyeOff, Leaf, LogOut, Pencil, Plus, Save, Trash2, CalendarDays } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Leaf, LogOut, Pencil, Plus, Save, Trash2, CalendarDays, MapPin, Phone, MessageCircle } from "lucide-react";
 
 type Product = {
   id: string; name: string; description: string | null; image_url: string | null;
   category: string | null; is_active: boolean; created_at: string;
 };
 type Draft = { name: string; description: string; image_url: string; category: string; is_active: boolean };
+type ClubSettings = { id: number; address: string; phone: string; zalo_phone: string };
 const blank: Draft = { name: "", description: "", image_url: "", category: "", is_active: true };
+const defaultSettings: ClubSettings = {
+  id: 1,
+  address: "100/4 Tổ 10, Khu phố 5, Phường Long Bình, Thành phố Đồng Nai",
+  phone: "0902666859",
+  zalo_phone: "0902666859"
+};
 
 export default function AdminPanel() {
   const [supabase] = useState(() => createClient());
@@ -23,6 +30,8 @@ export default function AdminPanel() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<ClubSettings>(defaultSettings);
+  const [settingsBusy, setSettingsBusy] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -35,7 +44,42 @@ export default function AdminPanel() {
     return () => listener.subscription.unsubscribe();
   }, [supabase]);
 
-  useEffect(() => { if (userEmail) loadProducts(); }, [userEmail]);
+  useEffect(() => { if (userEmail) { loadProducts(); loadSettings(); } }, [userEmail]);
+
+  async function loadSettings() {
+    const { data, error } = await supabase.from("club_settings").select("id,address,phone,zalo_phone").eq("id", 1).maybeSingle();
+    if (error) {
+      setMessage("Không tải được cài đặt thông tin CLB. Hãy chạy SQL tạo bảng club_settings: " + error.message);
+      return;
+    }
+    if (data) setSettings({
+      id: 1,
+      address: data.address ?? "",
+      phone: data.phone ?? "",
+      zalo_phone: data.zalo_phone ?? ""
+    });
+  }
+
+  async function saveSettings(e: FormEvent) {
+    e.preventDefault();
+    setSettingsBusy(true);
+    setMessage("");
+    const payload = {
+      id: 1,
+      address: settings.address.trim(),
+      phone: settings.phone.trim(),
+      zalo_phone: settings.zalo_phone.trim(),
+      updated_at: new Date().toISOString()
+    };
+    if (!payload.address || !payload.phone) {
+      setMessage("Vui lòng nhập địa chỉ CLB và số điện thoại liên hệ.");
+      setSettingsBusy(false);
+      return;
+    }
+    const { error } = await supabase.from("club_settings").upsert(payload, { onConflict: "id" });
+    setMessage(error ? "Không lưu được thông tin CLB: " + error.message : "Đã lưu thông tin CLB. Để hiện trên trang chủ, cần cập nhật trang chủ đọc bảng club_settings.");
+    setSettingsBusy(false);
+  }
 
   async function loadProducts() {
     const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
@@ -113,8 +157,18 @@ export default function AdminPanel() {
   return <div className="admin-screen admin-dashboard">
     <header className="admin-top"><Link href="/" className="brand"><span className="brand-mark"><Leaf size={24} /></span><span><strong>CLB DINH DƯỠNG</strong><small>QUẢN TRỊ WEBSITE</small></span></Link><div className="admin-user"><span>{userEmail}</span><Link className="button button-outline button-small" href="/admin/reminders"><CalendarDays size={16} /> Lịch & thành viên</Link><button className="button button-outline button-small" onClick={signOut}><LogOut size={16} /> Đăng xuất</button></div></header>
     <div className="admin-container">
-      <div className="admin-title-row"><div><div className="eyebrow">QUẢN LÝ DANH MỤC</div><h1>Sản phẩm</h1><p className="muted">Thêm, chỉnh sửa và điều khiển sản phẩm xuất hiện trên trang chủ.</p></div><span className="count-pill">{products.length} sản phẩm</span></div>
+      <div className="admin-title-row"><div><div className="eyebrow">QUẢN LÝ WEBSITE</div><h1>Quản trị CLB</h1><p className="muted">Quản lý sản phẩm và thông tin liên hệ của câu lạc bộ.</p></div><span className="count-pill">{products.length} sản phẩm</span></div>
       {message && <div className="notice">{message}</div>}
+      <section className="admin-card" style={{ marginBottom: 24 }}>
+        <h2><MapPin size={19} /> Cài đặt thông tin CLB</h2>
+        <p className="muted">Cập nhật địa chỉ, số điện thoại và Zalo dùng cho thông tin liên hệ.</p>
+        <form className="admin-form" onSubmit={saveSettings}>
+          <label>Địa chỉ CLB *<textarea rows={3} value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} required maxLength={300} placeholder="Nhập địa chỉ đầy đủ" /></label>
+          <label><Phone size={15} /> Số điện thoại liên hệ *<input type="tel" value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} required maxLength={30} placeholder="Ví dụ: 0902666859" /></label>
+          <label><MessageCircle size={15} /> Số điện thoại Zalo<input type="tel" value={settings.zalo_phone} onChange={e => setSettings({ ...settings, zalo_phone: e.target.value })} maxLength={30} placeholder="Để trống nếu dùng cùng số liên hệ" /></label>
+          <div className="form-actions"><button className="button" disabled={settingsBusy}><Save size={17} /> {settingsBusy ? "Đang lưu…" : "Lưu thông tin CLB"}</button><button type="button" className="button button-outline" onClick={loadSettings}>Tải lại</button></div>
+        </form>
+      </section>
       <div className="admin-columns">
         <section className="admin-card edit-card">
           <h2>{editingId ? <><Pencil size={19} /> Chỉnh sửa sản phẩm</> : <><Plus size={19} /> Thêm sản phẩm mới</>}</h2>
